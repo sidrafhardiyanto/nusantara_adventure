@@ -14,6 +14,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _confirmPasswordController = TextEditingController();
   bool _isLoading = false;
 
   @override
@@ -21,11 +22,22 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     _nameController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
+    _confirmPasswordController.dispose();
     super.dispose();
   }
 
   Future<void> _register() async {
     if (_formKey.currentState!.validate()) {
+      if (_passwordController.text != _confirmPasswordController.text) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Password tidak sama! Silakan periksa kembali.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+
       setState(() {
         _isLoading = true;
       });
@@ -49,7 +61,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
               backgroundColor: Colors.green,
             ),
           );
-          
+
           // Kembali ke halaman login
           Navigator.pop(context);
         }
@@ -111,15 +123,34 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                   if (value == null || value.isEmpty) {
                     return 'Please enter your password';
                   }
+                  if (value.length < 6) {
+                    return 'Password harus minimal 6 karakter';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _confirmPasswordController,
+                decoration:
+                    const InputDecoration(labelText: 'Konfirmasi Password'),
+                obscureText: true,
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Silakan konfirmasi password Anda';
+                  }
+                  if (value != _passwordController.text) {
+                    return 'Password tidak sama';
+                  }
                   return null;
                 },
               ),
               const SizedBox(height: 24),
               ElevatedButton(
                 onPressed: _isLoading ? null : _register,
-                child: _isLoading 
-                  ? const CircularProgressIndicator()
-                  : const Text('Register'),
+                child: _isLoading
+                    ? const CircularProgressIndicator()
+                    : const Text('Register'),
               ),
             ],
           ),
@@ -127,4 +158,4 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
       ),
     );
   }
-} 
+}

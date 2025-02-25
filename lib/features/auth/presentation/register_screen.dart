@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../providers/auth_provider.dart';
+import '../../../utils/error_handler.dart';
 
 class RegisterScreen extends ConsumerStatefulWidget {
   const RegisterScreen({super.key});
@@ -29,12 +30,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   Future<void> _register() async {
     if (_formKey.currentState!.validate()) {
       if (_passwordController.text != _confirmPasswordController.text) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Password tidak sama! Silakan periksa kembali.'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        ErrorHandler.showErrorSnackbar(
+            context, 'Password tidak sama! Silakan periksa kembali.');
         return;
       }
 
@@ -42,28 +39,35 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
         _isLoading = true;
       });
 
-      final success = await ref.read(authProvider.notifier).register(
-            email: _emailController.text,
-            password: _passwordController.text,
-            name: _nameController.text,
-          );
+      try {
+        final success = await ref.read(authProvider.notifier).register(
+              email: _emailController.text,
+              password: _passwordController.text,
+              name: _nameController.text,
+            );
 
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+          });
 
-        if (success) {
-          // Tampilkan snackbar sukses
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Registrasi berhasil! Silakan login.'),
-              backgroundColor: Colors.green,
-            ),
-          );
+          if (success) {
+            ErrorHandler.showSuccessSnackbar(
+                context, 'Registrasi berhasil! Silakan login.');
+            Navigator.pop(context);
+          } else {
+            ErrorHandler.showErrorSnackbar(
+                context, 'Gagal melakukan registrasi');
+          }
+        }
+      } catch (e) {
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+          });
 
-          // Kembali ke halaman login
-          Navigator.pop(context);
+          ErrorHandler.showErrorSnackbar(
+              context, ErrorHandler.getErrorMessage(e));
         }
       }
     }
@@ -73,12 +77,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   Widget build(BuildContext context) {
     ref.listen(authProvider, (previous, next) {
       if (next.hasError) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(next.error.toString()),
-            backgroundColor: Colors.red,
-          ),
-        );
+        ErrorHandler.showErrorSnackbar(context, next.error.toString());
       }
     });
 

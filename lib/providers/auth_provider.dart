@@ -2,18 +2,37 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:appwrite/appwrite.dart';
 import '../core/utils/appwrite_client.dart';
 import '../features/auth/domain/user_model.dart';
+import '../utils/error_handler.dart';
 
-final authProvider = StateNotifierProvider<AuthNotifier, AsyncValue<UserModel?>>((ref) {
-  return AuthNotifier();
+final authProvider =
+    StateNotifierProvider<AuthNotifier, AsyncValue<UserModel?>>((ref) {
+  final client = Client()
+      .setEndpoint('https://cloud.appwrite.io/v1')
+      .setProject('your-project-id');
+
+  final account = Account(client);
+  final databases = Databases(client);
+
+  return AuthNotifier(
+    account: account,
+    databases: databases,
+    client: client,
+  );
 });
 
 // Provider untuk status registrasi
 final registerStatusProvider = StateProvider<String?>((ref) => null);
 
 class AuthNotifier extends StateNotifier<AsyncValue<UserModel?>> {
-  AuthNotifier() : super(const AsyncValue.data(null));
-  
-  final account = Account(AppwriteClient.client);
+  final Account account;
+  final Databases databases;
+  final Client client;
+
+  AuthNotifier({
+    required this.account,
+    required this.databases,
+    required this.client,
+  }) : super(const AsyncValue.data(null));
 
   Future<bool> register({
     required String email,
@@ -22,38 +41,42 @@ class AuthNotifier extends StateNotifier<AsyncValue<UserModel?>> {
   }) async {
     try {
       state = const AsyncValue.loading();
-      
-      final user = await account.create(
+
+      await account.create(
         userId: ID.unique(),
         email: email,
         password: password,
         name: name,
       );
-      
-      state = const AsyncValue.data(null); // Reset state untuk login
-      return true; // Return true jika registrasi berhasil
+
+      state = const AsyncValue.data(null);
+      return true;
     } catch (e) {
-      state = AsyncValue.error(e, StackTrace.current);
+      final errorMessage = ErrorHandler.getErrorMessage(e);
+      state = AsyncValue.error(errorMessage, StackTrace.current);
       return false;
     }
   }
 
-  Future<void> login({
+  Future<bool> login({
     required String email,
     required String password,
   }) async {
     try {
       state = const AsyncValue.loading();
-      
+
       await account.createEmailPasswordSession(
         email: email,
         password: password,
       );
-      
+
       final user = await account.get();
       state = AsyncValue.data(UserModel.fromJson(user.toMap()));
+      return true;
     } catch (e) {
-      state = AsyncValue.error(e, StackTrace.current);
+      final errorMessage = ErrorHandler.getErrorMessage(e);
+      state = AsyncValue.error(errorMessage, StackTrace.current);
+      return false;
     }
   }
 
@@ -62,7 +85,8 @@ class AuthNotifier extends StateNotifier<AsyncValue<UserModel?>> {
       await account.deleteSessions();
       state = const AsyncValue.data(null);
     } catch (e) {
-      state = AsyncValue.error(e, StackTrace.current);
+      final errorMessage = ErrorHandler.getErrorMessage(e);
+      state = AsyncValue.error(errorMessage, StackTrace.current);
     }
   }
 
@@ -74,4 +98,4 @@ class AuthNotifier extends StateNotifier<AsyncValue<UserModel?>> {
       state = const AsyncValue.data(null);
     }
   }
-} 
+}

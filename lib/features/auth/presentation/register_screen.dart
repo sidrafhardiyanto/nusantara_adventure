@@ -16,6 +16,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
   bool _isLoading = false;
+  bool _obscurePassword = true;
+  bool _obscureConfirmPassword = true;
 
   @override
   void dispose() {
@@ -54,31 +56,29 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
         });
 
         if (success) {
-          // Tampilkan snackbar sukses
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Registrasi berhasil! Silakan login.'),
-              backgroundColor: Colors.green,
-            ),
-          );
-
-          // Kembali ke halaman login
+          _showSnackbar('Registrasi berhasil! Silakan login.', isError: false);
           Navigator.pop(context);
         }
       }
     }
   }
 
+  void _showSnackbar(String message, {bool isError = true}) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: isError ? Colors.red : Colors.green,
+        behavior: SnackBarBehavior.floating,
+        margin: const EdgeInsets.all(16),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     ref.listen(authProvider, (previous, next) {
       if (next.hasError) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(next.error.toString()),
-            backgroundColor: Colors.red,
-          ),
-        );
+        _showSnackbar(next.error.toString(), isError: true);
       }
     });
 
@@ -95,7 +95,11 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
             children: [
               TextFormField(
                 controller: _nameController,
-                decoration: const InputDecoration(labelText: 'Name'),
+                decoration: const InputDecoration(
+                  labelText: 'Name',
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.person),
+                ),
                 validator: (value) {
                   if (value == null || value.isEmpty) {
                     return 'Please enter your name';
@@ -106,7 +110,12 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
               const SizedBox(height: 16),
               TextFormField(
                 controller: _emailController,
-                decoration: const InputDecoration(labelText: 'Email'),
+                decoration: const InputDecoration(
+                  labelText: 'Email',
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.email),
+                ),
+                keyboardType: TextInputType.emailAddress,
                 validator: (value) {
                   if (value == null || value.isEmpty) {
                     return 'Please enter your email';
@@ -117,14 +126,42 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
               const SizedBox(height: 16),
               TextFormField(
                 controller: _passwordController,
-                decoration: const InputDecoration(labelText: 'Password'),
-                obscureText: true,
+                decoration: InputDecoration(
+                  labelText: 'Password',
+                  border: const OutlineInputBorder(),
+                  prefixIcon: const Icon(Icons.lock),
+                  suffixIcon: IconButton(
+                    icon: Icon(
+                      _obscurePassword
+                          ? Icons.visibility_off
+                          : Icons.visibility,
+                    ),
+                    onPressed: () {
+                      setState(() {
+                        _obscurePassword = !_obscurePassword;
+                      });
+                    },
+                  ),
+                  helperText:
+                      'Minimal 8 karakter, harus mengandung huruf kapital, angka, dan karakter spesial',
+                  helperMaxLines: 2,
+                ),
+                obscureText: _obscurePassword,
                 validator: (value) {
                   if (value == null || value.isEmpty) {
-                    return 'Please enter your password';
+                    return 'Password tidak boleh kosong';
                   }
-                  if (value.length < 6) {
-                    return 'Password harus minimal 6 karakter';
+                  if (value.length < 8) {
+                    return 'Password minimal 8 karakter';
+                  }
+                  if (!value.contains(RegExp(r'[A-Z]'))) {
+                    return 'Password harus mengandung huruf kapital';
+                  }
+                  if (!value.contains(RegExp(r'[0-9]'))) {
+                    return 'Password harus mengandung angka';
+                  }
+                  if (!value.contains(RegExp(r'[!@#$%^&*(),.?":{}|<>]'))) {
+                    return 'Password harus mengandung karakter spesial';
                   }
                   return null;
                 },
@@ -132,9 +169,24 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
               const SizedBox(height: 16),
               TextFormField(
                 controller: _confirmPasswordController,
-                decoration:
-                    const InputDecoration(labelText: 'Konfirmasi Password'),
-                obscureText: true,
+                decoration: InputDecoration(
+                  labelText: 'Konfirmasi Password',
+                  border: const OutlineInputBorder(),
+                  prefixIcon: const Icon(Icons.lock_outline),
+                  suffixIcon: IconButton(
+                    icon: Icon(
+                      _obscureConfirmPassword
+                          ? Icons.visibility_off
+                          : Icons.visibility,
+                    ),
+                    onPressed: () {
+                      setState(() {
+                        _obscureConfirmPassword = !_obscureConfirmPassword;
+                      });
+                    },
+                  ),
+                ),
+                obscureText: _obscureConfirmPassword,
                 validator: (value) {
                   if (value == null || value.isEmpty) {
                     return 'Silakan konfirmasi password Anda';

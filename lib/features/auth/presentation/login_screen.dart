@@ -14,20 +14,44 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  bool _isLoading = false;
+  bool _obscurePassword = true;
 
-  @override
-  void dispose() {
-    _emailController.dispose();
-    _passwordController.dispose();
-    super.dispose();
+  bool _isValidEmail(String email) {
+    return RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(email);
+  }
+
+  void _showErrorSnackbar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.red,
+        behavior: SnackBarBehavior.floating,
+        margin: const EdgeInsets.all(16),
+      ),
+    );
   }
 
   Future<void> _login() async {
     if (_formKey.currentState!.validate()) {
-      await ref.read(authProvider.notifier).login(
-            email: _emailController.text,
-            password: _passwordController.text,
-          );
+      setState(() {
+        _isLoading = true;
+      });
+
+      try {
+        await ref.read(authProvider.notifier).login(
+              email: _emailController.text,
+              password: _passwordController.text,
+            );
+      } catch (e) {
+        _showErrorSnackbar(e.toString());
+      } finally {
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+          });
+        }
+      }
     }
   }
 
@@ -35,9 +59,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   Widget build(BuildContext context) {
     ref.listen(authProvider, (previous, next) {
       if (next.hasError) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(next.error.toString())),
-        );
+        _showErrorSnackbar(next.error.toString());
       }
     });
 
@@ -54,10 +76,18 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             children: [
               TextFormField(
                 controller: _emailController,
-                decoration: const InputDecoration(labelText: 'Email'),
+                decoration: const InputDecoration(
+                  labelText: 'Email',
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.email),
+                ),
+                keyboardType: TextInputType.emailAddress,
                 validator: (value) {
                   if (value == null || value.isEmpty) {
-                    return 'Please enter your email';
+                    return 'Email tidak boleh kosong';
+                  }
+                  if (!_isValidEmail(value)) {
+                    return 'Format email tidak valid';
                   }
                   return null;
                 },
@@ -65,19 +95,39 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               const SizedBox(height: 16),
               TextFormField(
                 controller: _passwordController,
-                decoration: const InputDecoration(labelText: 'Password'),
-                obscureText: true,
+                decoration: InputDecoration(
+                  labelText: 'Password',
+                  border: const OutlineInputBorder(),
+                  prefixIcon: const Icon(Icons.lock),
+                  suffixIcon: IconButton(
+                    icon: Icon(
+                      _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                    ),
+                    onPressed: () {
+                      setState(() {
+                        _obscurePassword = !_obscurePassword;
+                      });
+                    },
+                  ),
+                ),
+                obscureText: _obscurePassword,
                 validator: (value) {
                   if (value == null || value.isEmpty) {
-                    return 'Please enter your password';
+                    return 'Password tidak boleh kosong';
                   }
                   return null;
                 },
               ),
               const SizedBox(height: 24),
               ElevatedButton(
-                onPressed: _login,
-                child: const Text('Login'),
+                onPressed: _isLoading ? null : _login,
+                child: _isLoading
+                    ? const SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Text('Login'),
               ),
               TextButton(
                 onPressed: () {
@@ -88,12 +138,19 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     ),
                   );
                 },
-                child: const Text('Don\'t have an account? Register'),
+                child: const Text('Belum punya akun? Daftar di sini'),
               ),
             ],
           ),
         ),
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
   }
 } 
